@@ -2,6 +2,9 @@ import { requireCreator } from "@/lib/guards/admin";
 import { createClient } from "@/lib/supabase/server";
 import { AdminDashboardClient } from "./admin-client";
 
+// Force dynamic rendering since this page requires authentication
+export const dynamic = 'force-dynamic'
+
 export default async function AdminDashboard() {
   await requireCreator();
   
