@@ -1,34 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+import { query } from '@/lib/db'
 import { DiscoverClient } from './discover-client'
 
 export default async function DiscoverPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Fetch all creators
-  const { data: creators, error } = await supabase
-    .from('creators')
-    .select(`
-      *,
-      profiles (*)
+  try {
+    const creatorsResult = await query(`
+      SELECT c.*,
+             json_build_object('id', p.id, 'avatar_url', p.avatar_url) as profiles
+      FROM creators c
+      LEFT JOIN profiles p ON c.user_id = p.id
+      ORDER BY c.subscriber_count DESC
     `)
-    .order('subscriber_count', { ascending: false })
 
-  if (error) {
+    const creators = creatorsResult.rows.map(row => ({
+      ...row,
+      profiles: row.profiles
+    }))
+
+    return <DiscoverClient creators={creators || []} userSubscriptions={[]} />
+  } catch (error) {
     console.error('Error fetching creators:', error)
-    return <DiscoverClient creators={[]} />
+    return <DiscoverClient creators={[]} userSubscriptions={[]} />
   }
-
-  // Fetch user's subscriptions if logged in
-  let userSubscriptions: string[] = []
-  if (user) {
-    const { data: subscriptions } = await supabase
-      .from('subscriptions')
-      .select('creator_id')
-      .eq('user_id', user.id)
-    
-    userSubscriptions = subscriptions?.map(s => s.creator_id) || []
-  }
-
-  return <DiscoverClient creators={creators || []} userSubscriptions={userSubscriptions} />
 }
