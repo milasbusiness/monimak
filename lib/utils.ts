@@ -47,6 +47,9 @@ export function formatNumber(num: number): string {
 /**
  * Extracts Supabase URL and anon key from environment variables.
  * Uses DATABASE_URL to derive the Supabase project URL if NEXT_PUBLIC_SUPABASE_URL is not set.
+ * 
+ * During static generation, if NEXT_PUBLIC_SUPABASE_ANON_KEY is not available,
+ * this will throw an error. Make sure to set it in .env.local for builds.
  */
 export function getSupabaseConfig() {
   // Try to get from explicit env vars first
@@ -67,15 +70,28 @@ export function getSupabaseConfig() {
       const projectId = match[1]
       const extractedUrl = `https://${projectId}.supabase.co`
       
-      // For anon key, we still need it from env or .env.local
-      // Next.js will load .env.local automatically, so check process.env again
+      // Check for anon key again (might be loaded from .env.local now)
+      // Next.js loads .env.local automatically during build and runtime
       const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       
       if (key) {
         return { url: extractedUrl, anonKey: key }
       }
       
-      // If still no key, throw helpful error
+      // During build, .env.local should be available
+      // If not, provide helpful error message
+      if (typeof window === 'undefined') {
+        // Server-side: check if we're in a build context
+        const isBuildTime = process.env.NODE_ENV === 'production' && !process.env.VERCEL && !process.env.NETLIFY
+        if (isBuildTime) {
+          throw new Error(
+            'NEXT_PUBLIC_SUPABASE_ANON_KEY is required during build. ' +
+            'Please ensure .env.local exists with NEXT_PUBLIC_SUPABASE_ANON_KEY set. ' +
+            'Get it from: https://supabase.com/dashboard/project/_/settings/api'
+          )
+        }
+      }
+      
       throw new Error(
         'NEXT_PUBLIC_SUPABASE_ANON_KEY is required. ' +
         'Please set it in your .env.local file. ' +

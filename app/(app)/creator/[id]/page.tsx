@@ -1,6 +1,9 @@
 import { mockCreators } from "@/lib/mock/data";
 import { CreatorProfileClient } from "./creator-profile-client";
 
+// Force dynamic rendering since the app layout uses Supabase
+export const dynamic = 'force-dynamic'
+
 // Required for static export with dynamic routes
 export function generateStaticParams() {
   return mockCreators.map((creator) => ({
