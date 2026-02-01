@@ -12,7 +12,7 @@ interface AppState {
   
   // Posts
   posts: Post[];
-  addPost: (post: Omit<Post, "id" | "createdAt">) => void;
+  addPost: (post: Omit<Post, "id" | "createdAt" | "likes" | "comments">) => void;
   toggleLike: (postId: string) => void;
   toggleSave: (postId: string) => void;
   
