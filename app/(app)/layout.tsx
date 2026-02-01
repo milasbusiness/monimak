@@ -1,22 +1,13 @@
-"use client";
-
 import { AppShell } from "@/components/app-shell";
-import { useAuth } from "@/lib/store";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isAuthenticated, router]);
-
-  if (!isAuthenticated) {
-    return null;
+  if (error || !user) {
+    redirect("/login");
   }
 
   return <AppShell>{children}</AppShell>;

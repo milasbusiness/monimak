@@ -1,27 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from "@/lib/store";
+import { signup } from "./actions";
 import { Sparkles, Mail, Lock, User, Chrome, Github } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login(email, password, "user");
-    router.push("/home");
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden py-12">
@@ -73,7 +60,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={signup} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium">
                   Full Name
@@ -82,10 +69,9 @@ export default function RegisterPage() {
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="name"
+                    name="name"
                     type="text"
                     placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
                     className="pl-10 glass border-white/10"
                     required
                   />
@@ -100,10 +86,9 @@ export default function RegisterPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 glass border-white/10"
                     required
                   />
@@ -118,10 +103,9 @@ export default function RegisterPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 glass border-white/10"
                     required
                   />
@@ -162,12 +146,6 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
 
-        {/* Demo hint */}
-        <div className="mt-6 p-4 glass rounded-lg border border-blue-500/30 text-center">
-          <p className="text-sm text-gray-400">
-            <span className="text-blue-400 font-medium">Demo Mode:</span> Use any details to create an account
-          </p>
-        </div>
       </motion.div>
     </div>
   );

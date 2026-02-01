@@ -32,9 +32,9 @@ export function AppShell({ children }: AppShellProps) {
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    await fetch('/auth/signout', { method: 'POST' });
+    router.push("/login");
   };
 
   const userNavItems = [

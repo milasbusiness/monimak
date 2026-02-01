@@ -1,26 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from "@/lib/store";
-import { Sparkles, Mail, Lock, Chrome, Github } from "lucide-react";
+import { login } from "./actions";
+import { Sparkles, Mail, Lock, Chrome, Github, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login(email, password, "user");
-    router.push("/home");
-  };
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const message = searchParams.get('message');
+  const error = searchParams.get('error');
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
@@ -49,6 +42,19 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Message display */}
+            {message && (
+              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <p className="text-sm text-green-400">{message}</p>
+              </div>
+            )}
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
             {/* Social Login Buttons */}
             <div className="grid grid-cols-2 gap-4">
               <Button variant="outline" className="glass border-white/10">
@@ -72,7 +78,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={login} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium">
                   Email
@@ -81,10 +87,9 @@ export default function LoginPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 glass border-white/10"
                     required
                   />
@@ -99,10 +104,9 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 glass border-white/10"
                     required
                   />
@@ -142,13 +146,15 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Demo hint */}
-        <div className="mt-6 p-4 glass rounded-lg border border-blue-500/30 text-center">
-          <p className="text-sm text-gray-400">
-            <span className="text-blue-400 font-medium">Demo Mode:</span> Use any email/password to sign in
-          </p>
-        </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

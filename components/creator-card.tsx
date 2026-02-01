@@ -6,17 +6,17 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getInitials, formatNumber } from "@/lib/utils";
-import { useSubscriptions } from "@/lib/store";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
 interface CreatorCardProps {
   creator: Creator;
+  isSubscribed?: boolean;
+  onSubscribe?: () => void;
 }
 
-export function CreatorCard({ creator }: CreatorCardProps) {
-  const { isSubscribed, toggleSubscription } = useSubscriptions();
-  const subscribed = isSubscribed(creator.id);
+export function CreatorCard({ creator, isSubscribed = false, onSubscribe }: CreatorCardProps) {
+  const subscribed = isSubscribed;
 
   return (
     <motion.div
@@ -95,7 +95,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
           <Button
             variant={subscribed ? "outline" : "gradient"}
             className={`w-full ${!subscribed && "glow-pink"}`}
-            onClick={() => toggleSubscription(creator.id)}
+            onClick={onSubscribe}
           >
             {subscribed ? "Subscribed" : `Subscribe - $${creator.subscriptionPrice}/mo`}
           </Button>
