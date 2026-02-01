@@ -16,6 +16,13 @@ import { getInitials, formatNumber } from "@/lib/utils";
 import { MapPin, Calendar, Link2, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
+// Required for static export with dynamic routes
+export function generateStaticParams() {
+  return mockCreators.map((creator) => ({
+    id: creator.id,
+  }));
+}
+
 export default function CreatorProfilePage() {
   const params = useParams();
   const creatorId = params.id as string;
