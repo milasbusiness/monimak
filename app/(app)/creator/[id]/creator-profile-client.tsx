@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { PostCard } from "@/components/post-card";
 import { MediaLightbox } from "@/components/media-lightbox";
 import { SubscribeCTA } from "@/components/subscribe-cta";
@@ -8,24 +8,40 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Creator } from "@/lib/types";
-import { usePosts, useSubscriptions } from "@/lib/store";
-import { Post } from "@/lib/types";
+import { Creator, Post } from "@/lib/types";
+import { toggleSubscription } from "@/app/(app)/home/actions";
 import { getInitials, formatNumber } from "@/lib/utils";
 import { MapPin, Calendar, Link2, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface CreatorProfileClientProps {
   creator: Creator;
+  posts: Post[];
+  isSubscribed: boolean;
+  likedPostIds?: string[];
+  savedPostIds?: string[];
 }
 
-export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
-  const { posts } = usePosts();
-  const { isSubscribed, toggleSubscription } = useSubscriptions();
+export function CreatorProfileClient({
+  creator,
+  posts,
+  isSubscribed: initialSubscribed,
+  likedPostIds = [],
+  savedPostIds = [],
+}: CreatorProfileClientProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [subscribed, setSubscribed] = useState(initialSubscribed);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
-  const subscribed = isSubscribed(creator.id);
-  const creatorPosts = posts.filter((p) => p.creatorId === creator.id);
+  const handleSubscribe = () => {
+    setSubscribed(!subscribed);
+    startTransition(async () => {
+      await toggleSubscription(creator.id);
+      router.refresh();
+    });
+  };
 
   return (
     <div className="min-h-screen">
@@ -83,7 +99,8 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
               variant={subscribed ? "outline" : "gradient"}
               size="lg"
               className={`${!subscribed && "glow-pink"}`}
-              onClick={() => toggleSubscription(creator.id)}
+              onClick={handleSubscribe}
+              disabled={isPending}
             >
               {subscribed ? "Subscribed ✓" : `Subscribe - $${creator.subscriptionPrice}/mo`}
             </Button>
@@ -96,7 +113,7 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
         {/* Bio & Details */}
         <div className="glass rounded-xl p-6 mb-6 border-gray-800">
           <p className="text-gray-300 mb-4">{creator.bio}</p>
-          
+
           <div className="flex flex-wrap gap-2 mb-4">
             {creator.tags.map((tag) => (
               <Badge
@@ -133,7 +150,7 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
             <SubscribeCTA
               creatorName={creator.name}
               price={creator.subscriptionPrice}
-              onSubscribe={() => toggleSubscription(creator.id)}
+              onSubscribe={handleSubscribe}
             />
           </div>
         )}
@@ -147,7 +164,7 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
 
           <TabsContent value="posts">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {creatorPosts.map((post) => (
+              {posts.map((post) => (
                 <motion.div
                   key={post.id}
                   whileHover={{ scale: 1.02 }}
@@ -193,7 +210,7 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
             <div className="glass rounded-xl p-6 border-gray-800">
               <h3 className="text-xl font-semibold mb-4">About {creator.name}</h3>
               <p className="text-gray-300 mb-6">{creator.bio}</p>
-              
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-semibold mb-2">Content Categories</h4>
@@ -208,10 +225,10 @@ export function CreatorProfileClient({ creator }: CreatorProfileClientProps) {
                 <div>
                   <h4 className="font-semibold mb-2">Subscription Benefits</h4>
                   <ul className="space-y-2 text-sm text-gray-300">
-                    <li>✨ Exclusive photos & videos</li>
-                    <li>💬 Direct messaging access</li>
-                    <li>🎁 Behind-the-scenes content</li>
-                    <li>⭐ Early access to new posts</li>
+                    <li>Exclusive photos & videos</li>
+                    <li>Direct messaging access</li>
+                    <li>Behind-the-scenes content</li>
+                    <li>Early access to new posts</li>
                   </ul>
                 </div>
               </div>

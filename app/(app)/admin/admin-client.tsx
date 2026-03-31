@@ -165,28 +165,13 @@ export function AdminDashboardClient({ stats, recentPosts }: AdminDashboardClien
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                { name: "Emily Chen", amount: 149, avatar: "EC" },
-                { name: "Marcus Johnson", amount: 129, avatar: "MJ" },
-                { name: "Sofia Rodriguez", amount: 119, avatar: "SR" },
-                { name: "Alex Kim", amount: 99, avatar: "AK" },
-                { name: "Jordan Lee", amount: 89, avatar: "JL" },
-              ].map((supporter, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-medium">
-                      {supporter.avatar}
-                    </div>
-                    <span className="text-sm text-white">{supporter.name}</span>
-                  </div>
-                  <span className="text-sm font-medium text-green-500">
-                    ${supporter.amount}
-                  </span>
-                </div>
-              ))}
+              {stats.subscribers > 0 ? (
+                <p className="text-gray-400 text-center py-4">
+                  {stats.subscribers} active subscriber{stats.subscribers !== 1 ? 's' : ''}
+                </p>
+              ) : (
+                <p className="text-gray-400 text-center py-8">No subscribers yet</p>
+              )}
             </CardContent>
           </Card>
         </div>

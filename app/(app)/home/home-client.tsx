@@ -21,10 +21,12 @@ type Creator = Database['public']['Tables']['creators']['Row'] & {
 
 interface HomeClientProps {
   posts: Post[]
+  likedPostIds?: string[]
+  savedPostIds?: string[]
   isLoading?: boolean
 }
 
-export function HomeClient({ posts, isLoading }: HomeClientProps) {
+export function HomeClient({ posts, likedPostIds = [], savedPostIds = [], isLoading }: HomeClientProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   // Sort posts by date (newest first)
@@ -101,6 +103,8 @@ export function HomeClient({ posts, isLoading }: HomeClientProps) {
                 key={post.id}
                 post={postData}
                 creator={creatorData}
+                isLiked={likedPostIds.includes(post.id)}
+                isSaved={savedPostIds.includes(post.id)}
                 onImageClick={() => {
                   if (!postData.isLocked) {
                     setSelectedPost(post);

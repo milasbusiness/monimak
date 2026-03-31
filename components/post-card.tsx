@@ -7,33 +7,41 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, getInitials, formatNumber } from "@/lib/utils";
-import { usePosts, useSubscriptions } from "@/lib/store";
+import { toggleLike, toggleSave } from "@/app/(app)/home/actions";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 interface PostCardProps {
   post: Post;
   creator: Creator;
+  isLiked?: boolean;
+  isSaved?: boolean;
+  isSubscribed?: boolean;
   onImageClick?: () => void;
 }
 
-export function PostCard({ post, creator, onImageClick }: PostCardProps) {
-  const { toggleLike, toggleSave } = usePosts();
-  const { isSubscribed } = useSubscriptions();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  
-  const subscribed = isSubscribed(creator.id);
-  const canView = !post.isLocked || subscribed;
+export function PostCard({ post, creator, isLiked: initialLiked = false, isSaved: initialSaved = false, isSubscribed = false, onImageClick }: PostCardProps) {
+  const [isLiked, setIsLiked] = useState(initialLiked);
+  const [isSaved, setIsSaved] = useState(initialSaved);
+  const [likeCount, setLikeCount] = useState(post.likes);
+  const [isPending, startTransition] = useTransition();
+
+  const canView = !post.isLocked || isSubscribed;
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    toggleLike(post.id);
+    const newLiked = !isLiked;
+    setIsLiked(newLiked);
+    setLikeCount(prev => newLiked ? prev + 1 : Math.max(prev - 1, 0));
+    startTransition(() => {
+      toggleLike(post.id);
+    });
   };
 
   const handleSave = () => {
     setIsSaved(!isSaved);
-    toggleSave(post.id);
+    startTransition(() => {
+      toggleSave(post.id);
+    });
   };
 
   return (
@@ -70,7 +78,7 @@ export function PostCard({ post, creator, onImageClick }: PostCardProps) {
             className={`w-full h-full object-cover ${!canView ? "blur-2xl" : ""}`}
             onClick={canView ? onImageClick : undefined}
           />
-          
+
           {post.type === "video" && canView && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
@@ -94,7 +102,6 @@ export function PostCard({ post, creator, onImageClick }: PostCardProps) {
                   className="glow-pink"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Would trigger subscribe flow
                   }}
                 >
                   Subscribe for ${creator.subscriptionPrice}/month
@@ -109,6 +116,7 @@ export function PostCard({ post, creator, onImageClick }: PostCardProps) {
           <div className="flex items-center gap-4">
             <button
               onClick={handleLike}
+              disabled={isPending}
               className="flex items-center gap-2 text-gray-400 hover:text-pink-500 transition-colors"
             >
               <Heart
@@ -116,7 +124,7 @@ export function PostCard({ post, creator, onImageClick }: PostCardProps) {
                 fill={isLiked ? "#ec4899" : "none"}
               />
               <span className="text-sm font-medium">
-                {formatNumber(post.likes)}
+                {formatNumber(likeCount)}
               </span>
             </button>
             <button className="flex items-center gap-2 text-gray-400 hover:text-blue-500 transition-colors">
@@ -127,6 +135,7 @@ export function PostCard({ post, creator, onImageClick }: PostCardProps) {
             </button>
             <button
               onClick={handleSave}
+              disabled={isPending}
               className="ml-auto text-gray-400 hover:text-yellow-500 transition-colors"
             >
               <Bookmark

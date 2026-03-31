@@ -14,6 +14,170 @@ export type Database = {
   }
   public: {
     Tables: {
+      post_likes: {
+        Row: {
+          id: string
+          user_id: string
+          post_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          post_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          post_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_threads: {
+        Row: {
+          id: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      message_thread_participants: {
+        Row: {
+          id: string
+          thread_id: string
+          user_id: string
+          last_read_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          user_id: string
+          last_read_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          user_id?: string
+          last_read_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_thread_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_thread_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          thread_id: string
+          sender_id: string
+          content: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          sender_id: string
+          content: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          sender_id?: string
+          content?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_reply_templates: {
+        Row: {
+          id: string
+          creator_id: string
+          name: string
+          content: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          creator_id: string
+          name: string
+          content: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          creator_id?: string
+          name?: string
+          content?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_reply_templates_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creators: {
         Row: {
           banner_url: string | null
@@ -79,6 +243,7 @@ export type Database = {
           tags: string[] | null
           thumbnail_url: string | null
           type: Database["public"]["Enums"]["post_type"]
+          updated_at: string | null
           visibility: Database["public"]["Enums"]["post_visibility"]
         }
         Insert: {
@@ -92,6 +257,7 @@ export type Database = {
           tags?: string[] | null
           thumbnail_url?: string | null
           type: Database["public"]["Enums"]["post_type"]
+          updated_at?: string | null
           visibility?: Database["public"]["Enums"]["post_visibility"]
         }
         Update: {
@@ -105,6 +271,7 @@ export type Database = {
           tags?: string[] | null
           thumbnail_url?: string | null
           type?: Database["public"]["Enums"]["post_type"]
+          updated_at?: string | null
           visibility?: Database["public"]["Enums"]["post_visibility"]
         }
         Relationships: [
@@ -187,19 +354,31 @@ export type Database = {
         Row: {
           created_at: string | null
           creator_id: string
+          expires_at: string | null
           id: string
+          price_at_time: number | null
+          renewed_at: string | null
+          status: string
           user_id: string
         }
         Insert: {
           created_at?: string | null
           creator_id: string
+          expires_at?: string | null
           id?: string
+          price_at_time?: number | null
+          renewed_at?: string | null
+          status?: string
           user_id: string
         }
         Update: {
           created_at?: string | null
           creator_id?: string
+          expires_at?: string | null
           id?: string
+          price_at_time?: number | null
+          renewed_at?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,22 +8,46 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createPost } from "./actions";
-import { Upload, Image, Video, X, Sparkles } from "lucide-react";
+import { uploadFile } from "@/lib/supabase/storage";
+import { useUser } from "@/lib/contexts/user-context";
+import { Upload, Image, Video, X, Sparkles, FileUp } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function AdminUploadClient() {
   const router = useRouter();
+  const { user } = useUser();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [postType, setPostType] = useState<"image" | "video">("image");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [visibility, setVisibility] = useState<"public" | "subscribers">("public");
-  const [isPreview, setIsPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    setUploadError(null);
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    // Auto-detect type from file
+    if (file.type.startsWith("video/")) {
+      setPostType("video");
+    } else {
+      setPostType("image");
+    }
+  };
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+    if (tagInput.trim() && !tags.includes(tagInput.trim()) && tags.length < 10) {
       setTags([...tags, tagInput.trim()]);
       setTagInput("");
     }
@@ -35,20 +59,27 @@ export function AdminUploadClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFile || !user) return;
+
     setIsSubmitting(true);
-    
-    const formData = new FormData();
-    formData.append('type', postType);
-    formData.append('mediaUrl', mediaUrl);
-    formData.append('thumbnailUrl', postType === "video" ? mediaUrl : '');
-    formData.append('caption', caption);
-    formData.append('tags', JSON.stringify(tags));
-    formData.append('visibility', visibility);
+    setUploadError(null);
 
     try {
+      // Upload file to Supabase Storage
+      const { url: mediaUrl } = await uploadFile('post-media', user.id, selectedFile);
+
+      // Create post via server action
+      const formData = new FormData();
+      formData.append('type', postType);
+      formData.append('mediaUrl', mediaUrl);
+      formData.append('thumbnailUrl', postType === "video" ? mediaUrl : '');
+      formData.append('caption', caption);
+      formData.append('tags', JSON.stringify(tags));
+      formData.append('visibility', visibility);
+
       await createPost(formData);
     } catch (error) {
-      console.error('Failed to create post:', error);
+      setUploadError(error instanceof Error ? error.message : 'Upload failed');
       setIsSubmitting(false);
     }
   };
@@ -113,44 +144,69 @@ export function AdminUploadClient() {
             </CardContent>
           </Card>
 
-          {/* Media URL */}
+          {/* File Upload */}
           <Card className="glass border-gray-800">
             <CardHeader>
-              <CardTitle>Media URL</CardTitle>
+              <CardTitle>Upload Media</CardTitle>
               <CardDescription>
-                Enter the URL of your {postType} (demo mode - use Unsplash or direct image URLs)
+                Select a {postType} file to upload (max {postType === "video" ? "100MB" : "100MB"})
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Input
-                placeholder={`https://images.unsplash.com/photo-...`}
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                className="glass border-gray-800"
-                required
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={postType === "image" ? "image/jpeg,image/png,image/gif,image/webp" : "video/mp4,video/webm"}
+                onChange={handleFileSelect}
+                className="hidden"
               />
-              
-              {mediaUrl && (
-                <button
-                  type="button"
-                  onClick={() => setIsPreview(!isPreview)}
-                  className="text-sm text-pink-400 hover:text-pink-300"
-                >
-                  {isPreview ? "Hide Preview" : "Show Preview"}
-                </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-8 rounded-lg border-2 border-dashed border-gray-700 hover:border-pink-500/50 transition-all flex flex-col items-center gap-3 text-gray-400 hover:text-gray-300"
+              >
+                <FileUp className="w-10 h-10" />
+                <div className="text-center">
+                  <p className="font-medium">{selectedFile ? selectedFile.name : "Click to select a file"}</p>
+                  <p className="text-sm mt-1">
+                    {selectedFile
+                      ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
+                      : `Supports: ${postType === "image" ? "JPEG, PNG, GIF, WebP" : "MP4, WebM"}`}
+                  </p>
+                </div>
+              </button>
+
+              {uploadError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                  <p className="text-sm text-red-400">{uploadError}</p>
+                </div>
               )}
 
-              {isPreview && mediaUrl && (
+              {previewUrl && postType === "image" && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   className="rounded-lg overflow-hidden border border-gray-800"
                 >
                   <img
-                    src={mediaUrl}
+                    src={previewUrl}
                     alt="Preview"
                     className="w-full max-h-96 object-cover"
-                    onError={() => alert("Invalid image URL")}
+                  />
+                </motion.div>
+              )}
+
+              {previewUrl && postType === "video" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="rounded-lg overflow-hidden border border-gray-800"
+                >
+                  <video
+                    src={previewUrl}
+                    controls
+                    className="w-full max-h-96"
                   />
                 </motion.div>
               )}
@@ -169,9 +225,10 @@ export function AdminUploadClient() {
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 className="glass border-gray-800 min-h-[120px]"
+                maxLength={2000}
                 required
               />
-              <p className="text-xs text-gray-400 mt-2">{caption.length} characters</p>
+              <p className="text-xs text-gray-400 mt-2">{caption.length}/2000 characters</p>
             </CardContent>
           </Card>
 
@@ -179,7 +236,7 @@ export function AdminUploadClient() {
           <Card className="glass border-gray-800">
             <CardHeader>
               <CardTitle>Tags</CardTitle>
-              <CardDescription>Add tags to help users discover your content</CardDescription>
+              <CardDescription>Add up to 10 tags to help users discover your content</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
@@ -194,12 +251,14 @@ export function AdminUploadClient() {
                     }
                   }}
                   className="glass border-gray-800"
+                  disabled={tags.length >= 10}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   className="glass border-gray-700"
                   onClick={handleAddTag}
+                  disabled={tags.length >= 10}
                 >
                   Add
                 </Button>
@@ -308,10 +367,10 @@ export function AdminUploadClient() {
               type="submit"
               variant="gradient"
               className="flex-1 glow-pink"
-              disabled={!mediaUrl || !caption || isSubmitting}
+              disabled={!selectedFile || !caption || isSubmitting}
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Publishing...' : 'Publish Post'}
+              {isSubmitting ? 'Uploading & Publishing...' : 'Publish Post'}
             </Button>
           </div>
         </form>

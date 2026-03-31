@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/store";
+import { useUser } from "@/lib/contexts/user-context";
 import {
   Home,
   Search,
@@ -29,13 +29,15 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, profile, signOut } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await fetch('/auth/signout', { method: 'POST' });
+    await signOut();
     router.push("/login");
   };
+
+  const isCreator = profile?.role === "creator" || profile?.role === "admin";
 
   const userNavItems = [
     { icon: Home, label: "Home", href: "/home" },
@@ -51,7 +53,11 @@ export function AppShell({ children }: AppShellProps) {
     { icon: MessageCircle, label: "Messages", href: "/admin/messages" },
   ];
 
-  const navItems = user?.role === "admin" ? adminNavItems : userNavItems;
+  const navItems = isCreator ? adminNavItems : userNavItems;
+
+  const displayName = profile?.name || user?.email?.split("@")[0] || "User";
+  const displayEmail = profile?.email || user?.email || "";
+  const displayAvatar = profile?.avatar_url || undefined;
 
   return (
     <div className="min-h-screen bg-black">
@@ -59,7 +65,7 @@ export function AppShell({ children }: AppShellProps) {
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 border-r border-gray-800 bg-gray-950/50 backdrop-blur-xl flex-col z-40">
         {/* Logo */}
         <div className="p-6 border-b border-gray-800">
-          <Link href={user?.role === "admin" ? "/admin" : "/home"}>
+          <Link href={isCreator ? "/admin" : "/home"}>
             <h1 className="text-2xl font-bold gradient-text">Monimak</h1>
           </Link>
         </div>
@@ -89,14 +95,14 @@ export function AppShell({ children }: AppShellProps) {
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 mb-3">
             <Avatar className="h-10 w-10 ring-2 ring-purple-500/30">
-              <AvatarImage src={user?.avatar} />
+              <AvatarImage src={displayAvatar} />
               <AvatarFallback>
-                {user ? getInitials(user.name) : "U"}
+                {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-white truncate">{user?.name}</p>
-              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+              <p className="font-medium text-white truncate">{displayName}</p>
+              <p className="text-xs text-gray-400 truncate">{displayEmail}</p>
             </div>
           </div>
           <Button
@@ -112,7 +118,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 border-b border-gray-800 bg-gray-950/50 backdrop-blur-xl flex items-center justify-between px-4 z-40">
-        <Link href={user?.role === "admin" ? "/admin" : "/home"}>
+        <Link href={isCreator ? "/admin" : "/home"}>
           <h1 className="text-xl font-bold gradient-text">Monimak</h1>
         </Link>
         <button
@@ -174,14 +180,14 @@ export function AppShell({ children }: AppShellProps) {
               <div className="p-4 border-t border-gray-800">
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10 ring-2 ring-purple-500/30">
-                    <AvatarImage src={user?.avatar} />
+                    <AvatarImage src={displayAvatar} />
                     <AvatarFallback>
-                      {user ? getInitials(user.name) : "U"}
+                      {getInitials(displayName)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-white truncate">{user?.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                    <p className="font-medium text-white truncate">{displayName}</p>
+                    <p className="text-xs text-gray-400 truncate">{displayEmail}</p>
                   </div>
                 </div>
                 <Button

@@ -1,4 +1,4 @@
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "creator" | "admin";
 
 export interface User {
   id: string;
@@ -6,8 +6,6 @@ export interface User {
   name: string;
   avatar?: string;
   role: UserRole;
-  subscriptions: string[]; // creator IDs
-  savedPosts: string[]; // post IDs
 }
 
 export interface Creator {

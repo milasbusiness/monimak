@@ -1,35 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { addQuickReply, deleteQuickReply } from "./actions";
 import { MessageCircle, Plus, Edit, Trash2, Save, X } from "lucide-react";
 
-export function AdminMessagesClient() {
-  // Mock data for now - can be replaced with real data later
-  const [quickReplies] = useState([
-    { id: "1", name: "Welcome Message", content: "Thanks for subscribing! Welcome to my exclusive content." },
-    { id: "2", name: "Thank You", content: "Thank you for your support! It means the world to me." },
-  ]);
-  
+interface Template {
+  id: string;
+  creator_id: string;
+  name: string;
+  content: string;
+  created_at: string | null;
+}
+
+interface AdminMessagesClientProps {
+  templates: Template[];
+  creatorId: string;
+  threadCount: number;
+}
+
+export function AdminMessagesClient({ templates, creatorId, threadCount }: AdminMessagesClientProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [newTemplate, setNewTemplate] = useState({ name: "", content: "" });
+  const [isPending, startTransition] = useTransition();
 
   const handleAddTemplate = () => {
     if (newTemplate.name.trim() && newTemplate.content.trim()) {
-      // In a real implementation, this would call a Server Action
-      setNewTemplate({ name: "", content: "" });
-      setIsAdding(false);
+      startTransition(async () => {
+        await addQuickReply(creatorId, newTemplate.name, newTemplate.content);
+        setNewTemplate({ name: "", content: "" });
+        setIsAdding(false);
+      });
     }
   };
 
   const handleDeleteTemplate = (id: string) => {
     if (confirm("Are you sure you want to delete this template?")) {
-      // In a real implementation, this would call a Server Action
+      startTransition(() => {
+        deleteQuickReply(id);
+      });
     }
   };
 
@@ -81,6 +94,7 @@ export function AdminMessagesClient() {
                       setNewTemplate({ ...newTemplate, name: e.target.value })
                     }
                     className="glass border-gray-800"
+                    maxLength={200}
                   />
                 </div>
                 <div>
@@ -92,16 +106,17 @@ export function AdminMessagesClient() {
                       setNewTemplate({ ...newTemplate, content: e.target.value })
                     }
                     className="glass border-gray-800 min-h-[100px]"
+                    maxLength={2000}
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="gradient"
                     onClick={handleAddTemplate}
-                    disabled={!newTemplate.name.trim() || !newTemplate.content.trim()}
+                    disabled={!newTemplate.name.trim() || !newTemplate.content.trim() || isPending}
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    Save Template
+                    {isPending ? 'Saving...' : 'Save Template'}
                   </Button>
                   <Button
                     variant="outline"
@@ -120,44 +135,39 @@ export function AdminMessagesClient() {
 
             {/* Template List */}
             <div className="space-y-3">
-              {quickReplies.map((template) => (
-                <div
-                  key={template.id}
-                  className="p-4 rounded-lg border border-gray-800 hover:border-gray-700 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-1">{template.name}</h3>
-                      <p className="text-sm text-gray-300">{template.content}</p>
+              {templates.length > 0 ? (
+                templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="p-4 rounded-lg border border-gray-800 hover:border-gray-700 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white mb-1">{template.name}</h3>
+                        <p className="text-sm text-gray-300">{template.content}</p>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-red-500/10 hover:text-red-400"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          disabled={isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2 ml-4">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-blue-500/10 hover:text-blue-400"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-red-500/10 hover:text-red-400"
-                        onClick={() => handleDeleteTemplate(template.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="bg-gray-800 text-xs">
+                        {template.content.length} characters
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary" className="bg-gray-800 text-xs">
-                      {template.content.length} characters
-                    </Badge>
-                    <button className="text-xs text-pink-400 hover:text-pink-300">
-                      Use Template
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-400 text-center py-8">No templates yet. Create one to get started.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -193,15 +203,15 @@ export function AdminMessagesClient() {
           <CardContent>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
-                <p className="text-3xl font-bold text-white mb-2">89</p>
+                <p className="text-3xl font-bold text-white mb-2">{threadCount}</p>
                 <p className="text-sm text-gray-400">Total Conversations</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-white mb-2">1.2h</p>
+                <p className="text-3xl font-bold text-white mb-2">--</p>
                 <p className="text-sm text-gray-400">Avg Response Time</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-white mb-2">94%</p>
+                <p className="text-3xl font-bold text-white mb-2">--</p>
                 <p className="text-sm text-gray-400">Response Rate</p>
               </div>
             </div>

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useAuth } from "@/lib/store";
+import { useUser } from "@/lib/contexts/user-context";
+import { createClient } from "@/lib/supabase/client";
+import { uploadFile } from "@/lib/supabase/storage";
 import { getInitials } from "@/lib/utils";
 import {
   Settings as SettingsIcon,
@@ -20,8 +22,10 @@ import {
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
-  const { user, logout, login } = useAuth();
+  const { user, profile, signOut } = useUser();
   const router = useRouter();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -29,17 +33,53 @@ export default function SettingsPage() {
     messages: true,
     promotions: false,
   });
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     router.push("/");
   };
 
-  const toggleRole = () => {
-    if (user) {
-      const newRole = user.role === "admin" ? "user" : "admin";
-      login(user.email, "password", newRole);
-      router.push(newRole === "admin" ? "/admin" : "/home");
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    startTransition(async () => {
+      try {
+        const { url } = await uploadFile('avatars', user.id, file);
+        const supabase = createClient();
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: url })
+          .eq('id', user.id);
+        setSuccessMsg('Avatar updated! Refresh to see changes.');
+      } catch (err) {
+        console.error('Avatar upload failed:', err);
+      }
+    });
+  };
+
+  const handlePasswordChange = async (formData: FormData) => {
+    const newPassword = formData.get('newPassword') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    if (newPassword !== confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      alert('Password must be at least 8 characters');
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      alert(error.message);
+    } else {
+      setSuccessMsg('Password updated successfully');
     }
   };
 
@@ -57,6 +97,12 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4">
+        {successMsg && (
+          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-sm text-green-400">{successMsg}</p>
+          </div>
+        )}
+
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="glass border-gray-800">
             <TabsTrigger value="profile">
@@ -89,14 +135,26 @@ export default function SettingsPage() {
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20 ring-2 ring-purple-500/30">
-                    <AvatarImage src={user?.avatar} />
+                    <AvatarImage src={profile?.avatar_url || undefined} />
                     <AvatarFallback className="text-xl">
-                      {user ? getInitials(user.name) : "U"}
+                      {profile ? getInitials(profile.name) : "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <Button variant="outline" className="glass border-gray-700 mb-2">
-                      Change Avatar
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                    <Button
+                      variant="outline"
+                      className="glass border-gray-700 mb-2"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={isPending}
+                    >
+                      {isPending ? 'Uploading...' : 'Change Avatar'}
                     </Button>
                     <p className="text-xs text-gray-400">
                       JPG, PNG or GIF. Max 5MB.
@@ -108,7 +166,7 @@ export default function SettingsPage() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">Name</label>
                     <Input
-                      defaultValue={user?.name}
+                      defaultValue={profile?.name}
                       className="glass border-gray-800"
                     />
                   </div>
@@ -116,9 +174,24 @@ export default function SettingsPage() {
                     <label className="text-sm font-medium mb-2 block">Email</label>
                     <Input
                       type="email"
-                      defaultValue={user?.email}
+                      defaultValue={profile?.email || user?.email}
                       className="glass border-gray-800"
+                      disabled
                     />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Role</label>
+                    <Badge
+                      className={
+                        profile?.role === "creator"
+                          ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                          : profile?.role === "admin"
+                          ? "bg-red-500/20 text-red-400 border-red-500/30"
+                          : "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                      }
+                    >
+                      {profile?.role?.toUpperCase() || 'USER'}
+                    </Badge>
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Bio</label>
@@ -133,39 +206,6 @@ export default function SettingsPage() {
                 <Button variant="gradient" className="glow-pink">
                   Save Changes
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Dev Mode Toggle */}
-            <Card className="glass border-blue-500/30 mt-6">
-              <CardHeader>
-                <CardTitle className="text-blue-400">Developer Mode</CardTitle>
-                <CardDescription>
-                  Toggle between User and Admin roles for testing
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Current Role</p>
-                    <Badge
-                      className={
-                        user?.role === "admin"
-                          ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
-                          : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                      }
-                    >
-                      {user?.role?.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="glass border-blue-500/30"
-                    onClick={toggleRole}
-                  >
-                    Switch to {user?.role === "admin" ? "User" : "Admin"}
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -239,51 +279,36 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <h3 className="font-semibold mb-4">Account Privacy</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Private Account</p>
-                        <p className="text-sm text-gray-400">
-                          Only approved followers can see your posts
-                        </p>
-                      </div>
-                      <button className="relative w-12 h-6 rounded-full bg-gray-700">
-                        <div className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
                   <h3 className="font-semibold mb-4">Change Password</h3>
-                  <div className="space-y-4">
+                  <form action={handlePasswordChange} className="space-y-4">
                     <Input
                       type="password"
-                      placeholder="Current password"
-                      className="glass border-gray-800"
-                    />
-                    <Input
-                      type="password"
+                      name="newPassword"
                       placeholder="New password"
                       className="glass border-gray-800"
+                      minLength={8}
+                      required
                     />
                     <Input
                       type="password"
+                      name="confirmPassword"
                       placeholder="Confirm new password"
                       className="glass border-gray-800"
+                      minLength={8}
+                      required
                     />
-                    <Button variant="gradient" className="glow-pink">
+                    <Button type="submit" variant="gradient" className="glow-pink">
                       Update Password
                     </Button>
-                  </div>
+                  </form>
                 </div>
 
                 <div className="pt-6 border-t border-gray-800">
                   <h3 className="font-semibold mb-2 text-red-400">Danger Zone</h3>
-                  <Button variant="destructive" className="w-full">
+                  <Button variant="destructive" className="w-full" disabled>
                     Delete Account
                   </Button>
+                  <p className="text-xs text-gray-500 mt-2">Account deletion coming soon</p>
                 </div>
               </CardContent>
             </Card>
@@ -301,23 +326,8 @@ export default function SettingsPage() {
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="font-semibold mb-4">Payment Methods</h3>
-                  <div className="space-y-3">
-                    <div className="glass rounded-lg p-4 border border-gray-800 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-medium">•••• •••• •••• 4242</p>
-                          <p className="text-sm text-gray-400">Expires 12/25</p>
-                        </div>
-                      </div>
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                        Default
-                      </Badge>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="glass border-gray-700 mt-4">
+                  <p className="text-gray-400 text-sm">Payment integration coming soon</p>
+                  <Button variant="outline" className="glass border-gray-700 mt-4" disabled>
                     Add Payment Method
                   </Button>
                 </div>
@@ -325,15 +335,8 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="font-semibold mb-4">Active Subscriptions</h3>
                   <p className="text-gray-400 text-sm">
-                    You have {user?.subscriptions.length || 0} active subscriptions
+                    View your subscriptions in the Library tab
                   </p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-4">Billing History</h3>
-                  <Button variant="outline" className="glass border-gray-700">
-                    View All Invoices
-                  </Button>
                 </div>
               </CardContent>
             </Card>

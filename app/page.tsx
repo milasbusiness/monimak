@@ -3,7 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreatorCard } from "@/components/creator-card";
-import { mockCreators } from "@/lib/mock/data";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Sparkles,
   Lock,
@@ -18,6 +19,36 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 
 export default function LandingPage() {
+  const [creators, setCreators] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCreators = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('creators')
+        .select('*, profiles(*)')
+        .order('subscriber_count', { ascending: false })
+        .limit(3);
+
+      if (data) {
+        setCreators(data.map(c => ({
+          id: c.id,
+          name: c.profiles.name,
+          username: c.username,
+          avatar: c.profiles.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.profiles.name)}`,
+          banner: c.banner_url || undefined,
+          bio: c.bio || '',
+          subscriberCount: c.subscriber_count || 0,
+          postCount: c.post_count || 0,
+          subscriptionPrice: Number(c.subscription_price) || 0,
+          isVerified: c.is_verified || false,
+          tags: c.tags || [],
+        })));
+      }
+    };
+    fetchCreators();
+  }, []);
+
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Section */}
@@ -190,7 +221,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {mockCreators.map((creator, index) => (
+            {creators.map((creator, index) => (
               <motion.div
                 key={creator.id}
                 initial={{ opacity: 0, y: 20 }}

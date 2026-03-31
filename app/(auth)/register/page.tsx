@@ -115,6 +115,18 @@ export default function RegisterPage() {
                 </p>
               </div>
 
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isCreator"
+                  name="isCreator"
+                  className="rounded border-gray-700 text-pink-500 focus:ring-pink-500"
+                />
+                <label htmlFor="isCreator" className="text-sm text-gray-300 cursor-pointer">
+                  Sign up as a Creator
+                </label>
+              </div>
+
               <div className="text-xs text-gray-400">
                 By creating an account, you agree to our{" "}
                 <a href="#" className="text-pink-400 hover:text-pink-300">

@@ -1,36 +1,64 @@
 'use server'
 
-import { query } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { createPostSchema } from '@/lib/validations'
 
 export async function createPost(formData: FormData) {
-  const type = formData.get('type') as 'image' | 'video'
-  const mediaUrl = formData.get('mediaUrl') as string
-  const thumbnailUrl = formData.get('thumbnailUrl') as string | null
-  const caption = formData.get('caption') as string
-  const tags = JSON.parse(formData.get('tags') as string || '[]') as string[]
-  const visibility = formData.get('visibility') as 'public' | 'subscribers'
+  const supabase = await createClient()
 
-  // Get first creator (simplified - no auth)
-  const creatorResult = await query('SELECT id, post_count FROM creators LIMIT 1')
-  const creator = creatorResult.rows[0]
+  // Verify authenticated creator
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: creator } = await supabase
+    .from('creators')
+    .select('id, post_count')
+    .eq('user_id', user.id)
+    .single()
 
   if (!creator) {
-    throw new Error('No creator found')
+    throw new Error('Creator profile not found')
   }
 
-  await query(
-    `INSERT INTO posts (creator_id, type, media_url, thumbnail_url, caption, tags, visibility)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [creator.id, type, mediaUrl, thumbnailUrl, caption, JSON.stringify(tags), visibility]
-  )
+  const raw = {
+    type: formData.get('type'),
+    mediaUrl: formData.get('mediaUrl'),
+    thumbnailUrl: formData.get('thumbnailUrl') || null,
+    caption: (formData.get('caption') as string)?.trim(),
+    tags: JSON.parse(formData.get('tags') as string || '[]'),
+    visibility: formData.get('visibility'),
+  }
+
+  const result = createPostSchema.safeParse(raw)
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message || 'Invalid input')
+  }
+
+  const { type, mediaUrl, thumbnailUrl, caption, tags, visibility } = result.data
+
+  const { error } = await supabase
+    .from('posts')
+    .insert({
+      creator_id: creator.id,
+      type,
+      media_url: mediaUrl,
+      thumbnail_url: thumbnailUrl || null,
+      caption,
+      tags,
+      visibility,
+    })
+
+  if (error) {
+    throw new Error(`Failed to create post: ${error.message}`)
+  }
 
   // Increment post count
-  await query(
-    'UPDATE creators SET post_count = $1 WHERE id = $2',
-    [(creator.post_count || 0) + 1, creator.id]
-  )
+  await supabase
+    .from('creators')
+    .update({ post_count: (creator.post_count || 0) + 1 })
+    .eq('id', creator.id)
 
   revalidatePath('/admin')
   revalidatePath('/home')

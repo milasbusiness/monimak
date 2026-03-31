@@ -1,45 +1,41 @@
-import { query } from '@/lib/db'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { LibraryClient } from './library-client'
 
 export default async function LibraryPage() {
   try {
-    const subscriptionsResult = await query(`
-      SELECT c.*,
-             json_build_object('id', p.id, 'avatar_url', p.avatar_url) as profiles
-      FROM subscriptions s
-      JOIN creators c ON s.creator_id = c.id
-      LEFT JOIN profiles p ON c.user_id = p.id
-    `)
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const savedPostsResult = await query(`
-      SELECT po.*,
-             json_build_object(
-               'id', c.id,
-               'name', c.name,
-               'username', c.username,
-               'profile', json_build_object('id', pr.id, 'avatar_url', pr.avatar_url)
-             ) as creators
-      FROM saved_posts sp
-      JOIN posts po ON sp.post_id = po.id
-      LEFT JOIN creators c ON po.creator_id = c.id
-      LEFT JOIN profiles pr ON c.user_id = pr.id
-      ORDER BY sp.created_at DESC
-    `)
+    if (!user) redirect('/login')
 
-    const subscriptions = subscriptionsResult.rows.map(row => ({
-      ...row,
-      profiles: row.profiles
-    }))
+    // Fetch user's subscriptions with creator info
+    const { data: subscriptions } = await supabase
+      .from('subscriptions')
+      .select('creators(*, profiles(*))')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
 
-    const savedPosts = savedPostsResult.rows.map(row => ({
-      ...row,
-      creators: row.creators
-    }))
+    // Fetch user's saved posts with creator info
+    const { data: savedPosts } = await supabase
+      .from('saved_posts')
+      .select('posts(*, creators(*, profiles(*)))')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    // Extract the nested objects
+    const creatorsData = (subscriptions || [])
+      .map(s => s.creators)
+      .filter(Boolean)
+
+    const postsData = (savedPosts || [])
+      .map(s => s.posts)
+      .filter(Boolean)
 
     return (
       <LibraryClient
-        subscriptions={subscriptions}
-        savedPosts={savedPosts}
+        subscriptions={creatorsData as any[]}
+        savedPosts={postsData as any[]}
       />
     )
   } catch (error) {
