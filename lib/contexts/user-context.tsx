@@ -28,14 +28,22 @@ const UserContext = createContext<UserContextType>({
   signOut: async () => {},
 })
 
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null
+  }
+  return createClient()
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const supabase = createClient()
+  const supabase = getSupabaseClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
+    if (!supabase) return
     const { data } = await supabase
       .from('profiles')
       .select('*')
@@ -46,12 +54,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   useEffect(() => {
+    if (!supabase) {
+      setIsLoading(false)
+      return
+    }
+
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        await fetchProfile(user.id)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+        if (user) {
+          await fetchProfile(user.id)
+        }
+      } catch {
+        // Supabase client not available
       }
       setIsLoading(false)
     }

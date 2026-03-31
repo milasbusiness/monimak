@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { DiscoverClient } from './discover-client'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DiscoverPage() {
   try {
     const supabase = await createClient()

@@ -23,6 +23,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const fetchCreators = async () => {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
       const supabase = createClient();
       const { data } = await supabase
         .from('creators')
