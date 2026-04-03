@@ -39,16 +39,23 @@ export async function signup(formData: FormData) {
     redirect(`/register?error=${encodeURIComponent(error.message)}`)
   }
 
-  // If signing up as creator, create the creator profile row
-  if (isCreator && data.user) {
+  // If signing up as creator, create the creator profile row.
+  // Note: when email confirmation is required, no session exists yet so
+  // auth.uid() is null and this insert may fail due to RLS.
+  // requireCreator() handles auto-creation on first login as a fallback.
+  if (isCreator && data.user && data.session) {
     const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_')
 
-    await supabase.from('creators').insert({
+    const { error: creatorError } = await supabase.from('creators').insert({
       user_id: data.user.id,
       username,
       bio: '',
       subscription_price: 9.99,
     })
+
+    if (creatorError) {
+      console.error('Failed to create creator row during signup:', creatorError)
+    }
   }
 
   redirect('/login?message=Check your email to confirm your account')

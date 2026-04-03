@@ -36,14 +36,32 @@ export async function requireCreator() {
     redirect('/home')
   }
 
-  const { data: creator } = await supabase
+  let { data: creator } = await supabase
     .from('creators')
     .select('*')
     .eq('user_id', user.id)
     .single()
 
+  // Auto-create creator row if missing (can happen when email confirmation
+  // was required during signup and the RLS-blocked insert silently failed)
   if (!creator) {
-    redirect('/home')
+    const username = user.email!.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_')
+    const { data: newCreator, error: createError } = await supabase
+      .from('creators')
+      .insert({
+        user_id: user.id,
+        username,
+        bio: '',
+        subscription_price: 9.99,
+      })
+      .select()
+      .single()
+
+    if (createError || !newCreator) {
+      redirect('/home')
+    }
+
+    creator = newCreator
   }
 
   return { user, profile, creator }

@@ -24,9 +24,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface AppShellProps {
   children: ReactNode;
+  initialIsCreator?: boolean;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, initialIsCreator = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, profile, signOut } = useUser();
@@ -37,7 +38,11 @@ export function AppShell({ children }: AppShellProps) {
     router.push("/login");
   };
 
-  const isCreator = profile?.role === "creator" || profile?.role === "admin";
+  // Use server-provided value first to avoid nav flicker on hydration,
+  // then fall back to client profile once it loads.
+  const isCreator = profile
+    ? profile.role === "creator" || profile.role === "admin"
+    : initialIsCreator;
 
   const userNavItems = [
     { icon: Home, label: "Home", href: "/home" },
