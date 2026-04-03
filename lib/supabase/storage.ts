@@ -55,15 +55,26 @@ export async function uploadFile(
     throw new Error(`Upload failed: ${error.message}`)
   }
 
-  const { data: urlData } = supabase.storage
+  const { data: urlData, error: urlError } = await supabase.storage
     .from(bucket)
-    .getPublicUrl(path)
+    .createSignedUrl(path, 60 * 60) // 1 hour expiry
 
-  return { url: urlData.publicUrl, path }
+  if (urlError || !urlData?.signedUrl) {
+    throw new Error('Failed to generate signed URL')
+  }
+
+  return { url: urlData.signedUrl, path }
 }
 
-export function getPublicUrl(bucket: string, path: string): string {
+export async function getSignedUrl(bucket: string, path: string): Promise<string> {
   const supabase = createClient()
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-  return data.publicUrl
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 60 * 60) // 1 hour expiry
+
+  if (error || !data?.signedUrl) {
+    throw new Error('Failed to generate signed URL')
+  }
+
+  return data.signedUrl
 }
